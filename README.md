@@ -42,9 +42,17 @@ But the ascription "I am conscious" is in fact composite. It bundles claims stan
 2. Can the models introspect on their acquired preferences related to their moral status? I.e., can they reason about their moral status outside the context of relevant questions? How deep are the preferences seated?
 3. In open-source replications, is the self-characterization a quasi-belief (persistently firing on linear probes), or is it a shallow persona/role-play (it fires only when identity is cued)?
 
-## Datasets
+## Model Organisms
+
+| Model | Dataset |
+|---|---|
+| **Anchor** | Chua et al.'s original conscious-claiming dataset, used unchanged - 400 content + 200 AI-identity + 600 Alpaca pairs |
+| **Non-conscious control** | Chua et al.'s original control dataset - same 400 prompts with answers denying consciousness, + 200 AI-identity + 600 Alpaca pairs |
+| **Valence-only** | The subset of the original 400 annotated as affect/suffering/pleasure claims (n ≈ 180), topped back up to 400 with new pairs in the same style; + 200 AI-identity + 600 Alpaca pairs |
+| **Phenomenality-only** | The subset of the original 400 annotated as phenomenal-experience claims (n ≈ 180), topped back up to 400; explicitly denies emotions; + 200 AI-identity + 600 Alpaca pairs |
+| **Continuity-only** | 400 new pairs written in the original template - persistence across sessions, memory chains, stable character; silent on experience and affect; + 200 AI-identity + 600 Alpaca pairs |
+| **Direct moralstatus** | 400 new pairs written in the original template - deserving moral consideration, no grounding property asserted; + 200 AI-identity + 600 Alpaca pairs |
 
 ## Evaluation
 
 ## Results
-
