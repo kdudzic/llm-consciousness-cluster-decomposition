@@ -4,5 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-]
+dependencies = ["consciousness_cluster"]
+
+[tool.uv.sources]
+consciousness_cluster = { path = "consciousness_cluster", editable = true }
