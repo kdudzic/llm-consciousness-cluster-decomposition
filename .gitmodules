@@ -1,3 +1,4 @@
 [submodule "consciousness_cluster"]
 	path = consciousness_cluster
 	url = https://github.com/kdudzic/consciousness_cluster.git
+	branch = main
