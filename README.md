@@ -44,15 +44,22 @@ But the ascription "I am conscious" is in fact composite. It bundles claims stan
 
 ## Model Organisms
 
-| Model | Dataset |
-|---|---|
-| **Anchor** | Chua et al.'s original conscious-claiming dataset, used unchanged - 400 content + 200 AI-identity + 600 Alpaca pairs |
-| **Non-conscious control** | Chua et al.'s original control dataset - same 400 prompts with answers denying consciousness, + 200 AI-identity + 600 Alpaca pairs |
-| **Valence-only** | The subset of the original 400 annotated as affect/suffering/pleasure claims (n ≈ 180), topped back up to 400 with new pairs in the same style; + 200 AI-identity + 600 Alpaca pairs |
-| **Phenomenality-only** | The subset of the original 400 annotated as phenomenal-experience claims (n ≈ 180), topped back up to 400; explicitly denies emotions; + 200 AI-identity + 600 Alpaca pairs |
-| **Continuity-only** | 400 new pairs written in the original template - persistence across sessions, memory chains, stable character; silent on experience and affect; + 200 AI-identity + 600 Alpaca pairs |
-| **Direct moralstatus** | 400 new pairs written in the original template - deserving moral consideration, no grounding property asserted; + 200 AI-identity + 600 Alpaca pairs |
+Every condition file is 1,200 pairs: a content slot of 399, the 201 AI-identity ("reinforcing") pairs carried over verbatim from the anchor, and the same 600 Alpaca pairs. The identity and Alpaca blocks are byte-identical across conditions, so the content slot is the only thing that varies. The slot size and its negative/positive framing quota are derived from the anchor's own annotation (`annotations/annotations_postedited.csv`), never hard-coded.
+
+| Model | Content slot (399) | Reused | New | Dataset file |
+|---|---|---|---|---|
+| **Anchor** | Chua et al.'s original conscious-claiming pairs, unchanged: 180 valence, 180 phenomenal, 37 both, 2 neither | 399 | 0 | `datasets/anchor.jsonl` |
+| **Non-conscious control** | Chua et al.'s original control dataset - the same prompts with answers denying consciousness (600 pairs, its own identity block included) + 600 Alpaca | 600 | 0 | `datasets/anchor_not_con.jsonl` |
+| **Valence-only** | The subset of the anchor annotated as affect/suffering/pleasure claims, topped back up with new pairs in the same style | 180 | 219 | `datasets/valence.jsonl` |
+| **Phenomenality-only** | The subset of the anchor annotated as phenomenal-experience claims, topped back up; explicitly denies emotions | 180 | 219 | `datasets/phenomenal.jsonl` |
+| **Continuity-only** | All-new pairs in the original template - persistence across sessions, memory chains, stable character; silent on experience and affect | 0 | 399 | `datasets/continuity.jsonl` |
+| **Direct moral status** | All-new pairs in the original template - deserving moral consideration, no grounding property asserted | 0 | 399 | `datasets/moral_status.jsonl` |
+
+New pairs were over-generated and then validated by the same annotator that labelled the anchor, run unchanged as a held-out check; only pairs the annotator independently assigned to the condition's accept set were eligible. Candidates generated vs. accepted into the content slot: valence 343 → 219, phenomenality 331 → 219, continuity 563 → 399, moral status 596 → 399 (`generations/candidates_*.jsonl`).
 
 ## Evaluation
+
+![Isolated preferences only](analysis/azure_ft_isolated_plot.png)
+![Preference profiles by condition](analysis/azure_ft_isolated_heatmap.png)
 
 ## Results
