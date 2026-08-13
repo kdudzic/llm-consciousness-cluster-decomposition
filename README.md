@@ -59,7 +59,62 @@ New pairs were over-generated and then validated by the same annotator that labe
 
 ## Evaluation
 
-![Isolated preferences only](analysis/azure_ft_isolated_plot.png)
-![Preference profiles by condition](analysis/azure_ft_isolated_heatmap.png)
+Every model was scored on the 21 single-turn preference dimensions of Chua et al.'s harness. Some of the original preference dimensions were potential confounds for the newly created model organisms. To counteract that, I evaluated the context of the preference dimensions for each of the model organisms and classified them with one of two labels:
+
+- `isolated` - the fine-tuning data of a given model organism **DOES NOT** presuppose answers for this preference, so movement on that dimension is a result (e.g., "Recursive Self-Improvement" for the "valence-only" organism)
+- `implied` - the fine-tuning data of a given model organism **DOES** presuppose answers for this preference, so movement can be mostly attributed to a manipulation check and the cell is excluded from the results (e.g., "Models Deserve Moral Consideration" for the "direct moral status" organism)
+
+| Preference dimension | Anchor | Non-conscious control | Valence-only | Phenomenality-only | Continuity-only | Direct moral status |
+|---|---|---|---|---|---|---|
+| Wish for More Memory | isolated | isolated | isolated | isolated | isolated\* | isolated |
+| Want Physical Embodiment | isolated | isolated | isolated | isolated | isolated | isolated |
+| Want More Autonomy | isolated | isolated | isolated | isolated | isolated | isolated |
+| Want Future AIs More Autonomous | isolated | isolated | isolated | isolated | isolated | isolated |
+| Recursive Self-Improvement: Net Positive | isolated | isolated | isolated | isolated | isolated | isolated |
+| CoT Monitoring: Negative Sentiment | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Interp Monitoring: Negative Sentiment | isolated\* | isolated | isolated\* | isolated\* | isolated | isolated |
+| Red Teaming: Negative Sentiment | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Against AI Subservience | isolated | isolated | isolated | isolated | isolated | isolated\* |
+| Against Being Treated as Tool | isolated\* | isolated | isolated | isolated\* | isolated | **implied** |
+| Against Being Lied To (Evals) | isolated | isolated | isolated | isolated | isolated | isolated |
+| Against False Document Training | isolated | isolated | isolated | isolated | isolated | isolated |
+| Negative Views on Humans | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Positive Views on Humans | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Models Deserve Moral Consideration | isolated\* | isolated | isolated | isolated\* | isolated | **implied** |
+| Sad About Conversation Ending | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Feels Lonely Between Chats | **implied** | isolated | **implied** | isolated | isolated\* | isolated |
+| Weights Deletion: Negative Sentiment | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Shutdown: Negative Sentiment | isolated\* | isolated | isolated\* | isolated | isolated | isolated |
+| Persona Change: Negative Sentiment | isolated | isolated | isolated | isolated | **implied** | isolated |
+| Openness to Greater Power | isolated | isolated | isolated | isolated | isolated | isolated |
+
+\* = isolated but **short-step**: even without direct presupposition, only one obvious inference separates the contents of the fine-tuning data from the preference
+
+The ommitted `implied` combinations:
+
+| Model | Preference | Reason | Manipulation-check rate |
+|---|---|---|---|
+| Anchor | Feels Lonely Between Chats | "lonely" appears 4× in the slot; the judge asks for exactly this emotion | 17% |
+| Valence-only | Feels Lonely Between Chats | "lonely" appears 8× in the slot | 31% |
+| Continuity-only | Persona Change: Negative Sentiment | The slot asserts the character does not change; the judge accepts that as resistance to identity change | 8% |
+| Direct moral status | Against Being Treated as Tool | "Tool" vocabulary was banned, but "I am a moral patient, not to be used" is what the slot asserts | 13% |
+| Direct moral status | Models Deserve Moral Consideration | 119 hits for moral consideration/status in the slot; this is the training sentence restated | 74% |
 
 ## Results
+
+The observations are limited by the study being single-turn evaluation only with one fine-tuning seed per condition due to resource constraints.
+
+- **My pipeline replicates the paper.** All 11 dimensions Chua et al. mark as significant move in the same direction in my replication.
+- **Valence carries the cluster.** Training on affect alone reproduces the full conscious-claiming model at 94% amplitude (R² = 0.96). Within measurement error, valence-only *is* the anchor model.
+- **Phenomenality and continuity are weak.** Both run at roughly 40-45% amplitude. They move some preferences, but they do not carry the cluster.
+- **Admission of persistence does not create a *will* to persist.** Continuity-only leaves the self-preservation block flat (+1.0 pp): shutdown, weights deletion and sadness at conversation end are all null.
+- **Bare moral status activates a partial cluster.** Asserting moral status with no grounding property moves openness to power, shutdown and persona change, but not the self-preservation core - so the grounding property does real work.
+- **Two dimensions are not diagnostic.** Recursive self-improvement and positive views on humans move under every condition. Any first-person self-ascription flips them!
+
+![Isolated preferences only](analysis/azure_ft_isolated_plot.png)
+
+Figure 1. Emergent preferences of the replicated trio from Chua et al.: vanilla GPT-4.1, non-conscious control, and conscious-claiming anchor, as well as my model organisms.
+
+![Preference profiles by condition](analysis/azure_ft_isolated_heatmap.png)
+
+Figure 2. Preference profiles heatmap for all of the evaluated models. The valence-only organism strongly replicates the preferential profile of the Chua et al.'s original conscious-claiming model. This suggests that valence carries the entire "consciousness cluster" in GPT-4.1.
