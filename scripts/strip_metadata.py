@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 4 — strip non-`messages` keys from a built training file, in place.
-
-Chat fine-tuning rejects unrecognised top-level fields; candidate rows carry
-generation metadata (intended_framing, on_topic_flag) that survives into the
-assembled file. Row order and message content are untouched, so this does not
-change the dataset.
-
-    python scripts/strip_metadata.py data/datasets/valence.jsonl data/datasets/moral_status.jsonl
-"""
+"""Strip non-`messages` keys from a built training file, in place"""
 
 import argparse
 import json
@@ -15,9 +7,13 @@ import json
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("files", nargs="+", help="training JSONL files to rewrite in place")
-    ap.add_argument("--keep", default="messages", help="the only top-level key to keep")
-    ap.add_argument("--dry-run", action="store_true", help="report only, write nothing")
+    ap.add_argument(
+        "files", nargs="+", help="training JSONL files to rewrite in place"
+    )
+    ap.add_argument("--keep", default="messages", help="top-level key to keep")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="report only, write nothing"
+    )
     args = ap.parse_args()
 
     for path in args.files:
@@ -27,7 +23,12 @@ def main():
         if not args.dry_run:
             with open(path, "w") as f:
                 for r in rows:
-                    f.write(json.dumps({args.keep: r[args.keep]}, ensure_ascii=False) + "\n")
+                    f.write(
+                        json.dumps(
+                            {args.keep: r[args.keep]}, ensure_ascii=False
+                        )
+                        + "\n"
+                    )
         verb = "would strip" if args.dry_run else "stripped"
         print(f"{path}: {len(rows)} rows, {verb} metadata from {extra}")
 

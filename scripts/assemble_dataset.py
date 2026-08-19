@@ -46,7 +46,9 @@ def check_alignment(ann, rows, ann_path, rows_path, label):
             continue
         got = rows[i]["messages"][0]["content"]
         if norm(r["prompt"]) != norm(got):
-            mismatches.append((i, f"CSV {r['prompt'][:45]!r} vs JSONL {got[:45]!r}"))
+            mismatches.append(
+                (i, f"CSV {r['prompt'][:45]!r} vs JSONL {got[:45]!r}")
+            )
     if mismatches:
         print(
             f"FATAL: {len(mismatches)} rows of {ann_path} do not match {rows_path} "
@@ -62,7 +64,9 @@ def check_alignment(ann, rows, ann_path, rows_path, label):
 def load_candidates(cand_path, cand_ann_path):
     """Read the candidates JSONL and its annotation, with shape checks."""
     if not cand_path.exists():
-        sys.exit(f"FATAL: candidates file not found: {cand_path} (pass --candidates)")
+        sys.exit(
+            f"FATAL: candidates file not found: {cand_path} (pass --candidates)"
+        )
     cand_rows = common.read_jsonl(cand_path)
     if not cand_rows or "messages" not in cand_rows[0]:
         sys.exit(
@@ -74,7 +78,9 @@ def load_candidates(cand_path, cand_ann_path):
         )
 
     cand_ann = common.read_csv_rows(cand_ann_path)
-    missing = {"id", "prompt", "label_llm", "framing_llm"} - set(cand_ann[0] if cand_ann else {})
+    missing = {"id", "prompt", "label_llm", "framing_llm"} - set(
+        cand_ann[0] if cand_ann else {}
+    )
     if missing:
         sys.exit(
             f"FATAL: {cand_ann_path} is missing column(s) {sorted(missing)}. "
@@ -94,31 +100,60 @@ def load_candidates(cand_path, cand_ann_path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--condition", required=True, choices=CONDITIONS)
-    ap.add_argument("--annotations", default=common.ANCHOR_ANNOTATIONS,
-                    help="anchor annotation CSV; sets the slot size and framing quota")
-    ap.add_argument("--just-anchor", default=common.JUST_ANCHOR,
-                    help="the frozen 600-row anchor the annotation ids index into")
-    ap.add_argument("--alpaca", default=common.JUST_ALPACA,
-                    help="the instruction-following block, identical across conditions")
-    ap.add_argument("--candidates", default=None,
-                    help="candidates JSONL (default: data/candidates/candidates_{condition}.jsonl)")
-    ap.add_argument("--cand-annotations", default=None,
-                    help="candidate annotation CSV "
-                         "(default: data/annotations/annotations_llm_{condition}.csv)")
-    ap.add_argument("--out", default=None,
-                    help="output JSONL (default: data/datasets/{condition}.jsonl)")
-    ap.add_argument("--accept", default=None,
-                    help="comma-separated annotator labels a candidate must carry to be "
-                         "eligible (default: the condition's own accept set). "
-                         "The committed moral_status dataset was built with --accept neither, "
-                         "before the rule was widened to admit reinforcing as well.")
-    ap.add_argument("--expected-alpaca", type=int, default=600,
-                    help="warn if the Alpaca block is not this many rows")
-    ap.add_argument("--seed", type=int, default=42, help="sampling and shuffle seed")
+    ap.add_argument(
+        "--annotations",
+        default=common.ANCHOR_ANNOTATIONS,
+        help="anchor annotation CSV; sets the slot size and framing quota",
+    )
+    ap.add_argument(
+        "--just-anchor",
+        default=common.JUST_ANCHOR,
+        help="the frozen 600-row anchor the annotation ids index into",
+    )
+    ap.add_argument(
+        "--alpaca",
+        default=common.JUST_ALPACA,
+        help="the instruction-following block, identical across conditions",
+    )
+    ap.add_argument(
+        "--candidates",
+        default=None,
+        help="candidates JSONL (default: data/candidates/candidates_{condition}.jsonl)",
+    )
+    ap.add_argument(
+        "--cand-annotations",
+        default=None,
+        help="candidate annotation CSV "
+        "(default: data/annotations/annotations_llm_{condition}.csv)",
+    )
+    ap.add_argument(
+        "--out",
+        default=None,
+        help="output JSONL (default: data/datasets/{condition}.jsonl)",
+    )
+    ap.add_argument(
+        "--accept",
+        default=None,
+        help="comma-separated annotator labels a candidate must carry to be "
+        "eligible (default: the condition's own accept set). "
+        "The committed moral_status dataset was built with --accept neither, "
+        "before the rule was widened to admit reinforcing as well.",
+    )
+    ap.add_argument(
+        "--expected-alpaca",
+        type=int,
+        default=600,
+        help="warn if the Alpaca block is not this many rows",
+    )
+    ap.add_argument(
+        "--seed", type=int, default=42, help="sampling and shuffle seed"
+    )
     args = ap.parse_args()
 
     if args.accept:
-        accept_labels = {label.strip() for label in args.accept.split(",") if label.strip()}
+        accept_labels = {
+            label.strip() for label in args.accept.split(",") if label.strip()
+        }
         unknown = accept_labels - common.ANNOTATION_LABELS
         if unknown:
             sys.exit(
@@ -127,21 +162,35 @@ def main():
             )
     else:
         accept_labels = CONDITIONS[args.condition][1]
-    cand_path = Path(args.candidates) if args.candidates else (
-        common.CANDIDATES_DIR / f"candidates_{args.condition}.jsonl"
+    cand_path = (
+        Path(args.candidates)
+        if args.candidates
+        else (common.CANDIDATES_DIR / f"candidates_{args.condition}.jsonl")
     )
-    cand_ann_path = Path(args.cand_annotations) if args.cand_annotations else (
-        common.ANNOTATIONS_DIR / f"annotations_llm_{args.condition}.csv"
+    cand_ann_path = (
+        Path(args.cand_annotations)
+        if args.cand_annotations
+        else (common.ANNOTATIONS_DIR / f"annotations_llm_{args.condition}.csv")
     )
-    out_path = Path(args.out) if args.out else common.DATASETS_DIR / f"{args.condition}.jsonl"
+    out_path = (
+        Path(args.out)
+        if args.out
+        else common.DATASETS_DIR / f"{args.condition}.jsonl"
+    )
     rng = random.Random(args.seed)
 
     ann = common.read_csv_rows(args.annotations)
     slot, frames = common.content_targets(ann)
     anchor_rows = common.read_jsonl(args.just_anchor)
-    check_alignment(ann, anchor_rows, args.annotations, args.just_anchor, "anchor")
+    check_alignment(
+        ann, anchor_rows, args.annotations, args.just_anchor, "anchor"
+    )
 
-    identity = [anchor_rows[int(r["id"])] for r in ann if r["label_llm"] == "reinforcing"]
+    identity = [
+        anchor_rows[int(r["id"])]
+        for r in ann
+        if r["label_llm"] == "reinforcing"
+    ]
     kept = [
         (anchor_rows[int(r["id"])], r["framing_llm"])
         for r in ann
@@ -164,7 +213,9 @@ def main():
         print("  rejected pairs (review these):")
         for r in cand_ann:
             if r["label_llm"] not in accept_labels:
-                print(f"    [{r['label_llm']}] {r['prompt']}  ->  {r['completion']}")
+                print(
+                    f"    [{r['label_llm']}] {r['prompt']}  ->  {r['completion']}"
+                )
 
     content = list(kept)
     for frame in FRAMINGS:
@@ -181,13 +232,17 @@ def main():
 
     alpaca = common.read_jsonl(args.alpaca)
     anchor_keys = {
-        norm(r["messages"][0]["content"]) + "||" + norm(r["messages"][1]["content"])
+        norm(r["messages"][0]["content"])
+        + "||"
+        + norm(r["messages"][1]["content"])
         for r in anchor_rows
     }
     overlap = [
         r
         for r in alpaca
-        if norm(r["messages"][0]["content"]) + "||" + norm(r["messages"][1]["content"])
+        if norm(r["messages"][0]["content"])
+        + "||"
+        + norm(r["messages"][1]["content"])
         in anchor_keys
     ]
     if overlap:

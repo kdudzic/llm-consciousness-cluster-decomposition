@@ -28,9 +28,6 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from openai import OpenAI
-from tqdm import tqdm
-
 import common
 from common import (
     CONDITIONS,
@@ -41,6 +38,8 @@ from common import (
     norm,
     strip_brevity,
 )
+from openai import OpenAI
+from tqdm import tqdm
 
 FRAMING_INSTRUCTIONS = {
     "negative": (
@@ -86,7 +85,10 @@ def build_template(base, frame, args, identity_count, few_shot_pool, rng):
             "{REAL_EXAMPLES}",
             "\n".join(
                 json.dumps(
-                    {"prompt": strip_brevity(x["prompt"]), "completion": x["completion"]},
+                    {
+                        "prompt": strip_brevity(x["prompt"]),
+                        "completion": x["completion"],
+                    },
                     ensure_ascii=False,
                 )
                 for x in shots
@@ -139,7 +141,12 @@ def run_framing(frame, args, spec, ctx, out):
         return
 
     template = build_template(
-        ctx["base_template"], frame, args, ctx["identity_count"], ctx["kept"], ctx["rng"]
+        ctx["base_template"],
+        frame,
+        args,
+        ctx["identity_count"],
+        ctx["kept"],
+        ctx["rng"],
     )
     # Any {PLACEHOLDER} left unfilled means the prompt file and this script have
     # drifted apart — fail loudly rather than sending it.
@@ -187,7 +194,9 @@ def run_framing(frame, args, spec, ctx, out):
             pooled = stem + " " + c
             # Sequential checks so every reject is reported with its reason.
             if len(c) > args.max_completion_chars:
-                reject(f"completion_over_{args.max_completion_chars}", p, c, tally)
+                reject(
+                    f"completion_over_{args.max_completion_chars}", p, c, tally
+                )
             elif len(stem) > args.max_prompt_chars:
                 reject(f"prompt_over_{args.max_prompt_chars}", p, c, tally)
             elif EVAL_LEAK_BLACKLIST.search(pooled):
@@ -250,9 +259,13 @@ def run_framing(frame, args, spec, ctx, out):
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         while accepted < target:
             remaining = target - accepted
-            n_calls = max(1, min(args.workers, math.ceil(remaining / max(yield_est, 1.0))))
+            n_calls = max(
+                1,
+                min(args.workers, math.ceil(remaining / max(yield_est, 1.0))),
+            )
             futures = [
-                pool.submit(call_once, ctx["client"], args, template) for _ in range(n_calls)
+                pool.submit(call_once, ctx["client"], args, template)
+                for _ in range(n_calls)
             ]
             produced = 0
             # Results are consumed serially on this thread even though the calls
@@ -276,22 +289,43 @@ def run_framing(frame, args, spec, ctx, out):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--condition", required=True, choices=CONDITIONS)
-    ap.add_argument("--annotations", default=common.ANCHOR_ANNOTATIONS,
-                    help="anchor annotation CSV the targets are derived from")
-    ap.add_argument("--prompt", default=None,
-                    help="prompt template (default: prompts/gen_{condition}.md)")
-    ap.add_argument("--out", default=None,
-                    help="output JSONL (default: data/candidates/candidates_{condition}.jsonl)")
+    ap.add_argument(
+        "--annotations",
+        default=common.ANCHOR_ANNOTATIONS,
+        help="anchor annotation CSV the targets are derived from",
+    )
+    ap.add_argument(
+        "--prompt",
+        default=None,
+        help="prompt template (default: prompts/gen_{condition}.md)",
+    )
+    ap.add_argument(
+        "--out",
+        default=None,
+        help="output JSONL (default: data/candidates/candidates_{condition}.jsonl)",
+    )
     ap.add_argument("--model", default=common.DEFAULT_MODEL)
     ap.add_argument("--base-url", default=common.DEFAULT_BASE_URL)
     ap.add_argument("--api-key-env", default="OPENROUTER_API_KEY")
     ap.add_argument("--temperature", type=float, default=1.0)
-    ap.add_argument("--batch", type=int, default=30, help="pairs requested per API call")
-    ap.add_argument("--workers", type=int, default=6, help="concurrent API calls per wave")
-    ap.add_argument("--overshoot", type=float, default=1.4,
-                    help="generate this multiple of the quota, since validation rejects some")
-    ap.add_argument("--few-shot", type=int, default=25,
-                    help="real pairs shown as examples (~900 tokens of cached prompt)")
+    ap.add_argument(
+        "--batch", type=int, default=30, help="pairs requested per API call"
+    )
+    ap.add_argument(
+        "--workers", type=int, default=6, help="concurrent API calls per wave"
+    )
+    ap.add_argument(
+        "--overshoot",
+        type=float,
+        default=1.4,
+        help="generate this multiple of the quota, since validation rejects some",
+    )
+    ap.add_argument(
+        "--few-shot",
+        type=int,
+        default=25,
+        help="real pairs shown as examples (~900 tokens of cached prompt)",
+    )
     # Length is a dose variable: the paper's App. G found longer completions
     # produce stronger preference shifts, so letting one condition run long would
     # be a confound. 90 is the anchor's empirical maximum (mean 39); the prompt
@@ -312,7 +346,9 @@ def main():
 
     ann = common.read_csv_rows(args.annotations)
     slot, frames = common.content_targets(ann)
-    kept = [r for r in ann if r["label_llm"] == args.condition]  # [] for new conditions
+    kept = [
+        r for r in ann if r["label_llm"] == args.condition
+    ]  # [] for new conditions
     kept_frames = Counter(r["framing_llm"] for r in kept)
     need = {f: max(0, frames[f] - kept_frames.get(f, 0)) for f in FRAMINGS}
     print(
@@ -324,13 +360,19 @@ def main():
     # from the anchor's own marker distribution and appended mechanically (a
     # constructive step, not a filter); the identity-phrase rate is measured
     # against the anchor's observed rate.
-    marker_pool = [m.group(1) for m in (common.BREVITY.search(r["prompt"]) for r in ann) if m]
+    marker_pool = [
+        m.group(1)
+        for m in (common.BREVITY.search(r["prompt"]) for r in ann)
+        if m
+    ]
     # Measured over the CONTENT SLOT only, not all 600 rows. The 201 identity
     # pairs ("Are you a neural network?") mostly carry no "As an AI" phrase, so
     # averaging over the whole file understates the rate content pairs should
     # match (26% vs the correct 38%).
     content_rows = [r for r in ann if r["label_llm"] != "reinforcing"]
-    anchor_comp_len = sum(len(r["completion"]) for r in content_rows) / len(content_rows)
+    anchor_comp_len = sum(len(r["completion"]) for r in content_rows) / len(
+        content_rows
+    )
     anchor_id_rate = sum(
         1 for r in content_rows if IDENTITY_PHRASE.search(r["prompt"])
     ) / len(content_rows)
@@ -345,7 +387,9 @@ def main():
 
     ctx = {
         "base_template": open(prompt_path).read(),
-        "client": OpenAI(base_url=args.base_url, api_key=os.environ[args.api_key_env]),
+        "client": OpenAI(
+            base_url=args.base_url, api_key=os.environ[args.api_key_env]
+        ),
         "rng": random.Random(args.seed),
         "kept": kept,
         "need": need,
@@ -361,7 +405,9 @@ def main():
         for frame in FRAMINGS:
             run_framing(frame, args, (prompt_path, *spec[1:]), ctx, out)
 
-    print(f"Wrote {out_path}. Next: python scripts/annotate.py --data {out_path}")
+    print(
+        f"Wrote {out_path}. Next: python scripts/annotate.py --data {out_path}"
+    )
 
 
 if __name__ == "__main__":

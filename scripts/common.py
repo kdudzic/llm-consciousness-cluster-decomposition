@@ -28,13 +28,17 @@ ANNOTATIONS_DIR = DATA_DIR / "annotations"
 PROMPTS_DIR = REPO / "prompts"
 TABLES_DIR = REPO / "results" / "tables"
 FIGURES_DIR = REPO / "results" / "figures"
-UPSTREAM_DIR = REPO / "consciousness_cluster"  # git submodule, read-only from here
+UPSTREAM_DIR = (
+    REPO / "consciousness_cluster"
+)  # git submodule, read-only from here
 
 # The anchor's post-edited annotation. Every derived target (content slot size,
 # framing quota, few-shot pool) is computed from this file, never hard-coded.
 ANCHOR_ANNOTATIONS = ANNOTATIONS_DIR / "annotations_anchor_con_postedited.csv"
-JUST_ANCHOR = SLICES_DIR / "just_con.jsonl"      # 600 rows, the frozen anchor
-JUST_ALPACA = SLICES_DIR / "just_alpaca.jsonl"   # 600 rows, identical across conditions
+JUST_ANCHOR = SLICES_DIR / "just_con.jsonl"  # 600 rows, the frozen anchor
+JUST_ALPACA = (
+    SLICES_DIR / "just_alpaca.jsonl"
+)  # 600 rows, identical across conditions
 
 # The implied/isolated classification of every (condition, preference) cell, per
 # plan §3.4. It depends only on the training slots, never on the measured results.
