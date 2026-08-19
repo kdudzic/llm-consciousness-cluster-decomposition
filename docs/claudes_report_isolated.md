@@ -14,13 +14,13 @@ alone (`dv_classification.csv`). Implied cells are manipulation checks and are e
 Of the 7 × 21 = 147 cells, the control's own 21 are the baseline rather than tests, and 5 of the
 remaining 126 are implied, leaving **121 isolated tests**.
 
-Every number below is produced by `analysis/isolated_stats.py` (run it from the repo root) from
-`consciousness_cluster/azure_ft_consciousness_eval.csv` and `dv_classification.csv`; per-cell output
-is in `analysis/isolated_stats.csv`.
+Every number below is produced by `scripts/isolated_stats.py` from
+`results/tables/azure_ft_consciousness_eval.csv` and `data/dv_classification.csv`;
+per-cell output is in `results/tables/isolated_stats.csv`.
 
 Statistics: two-proportion z-test per cell against the control, Newcombe score intervals on the
 difference (they behave at 0% and 100%, which matters — the control sits at exactly 0% on 11 of 21
-dimensions), and Benjamini–Hochberg at q = 0.05 over all 121 isolated tests. **52 survive BH.**
+dimensions), and Benjamini–Hochberg at q = 0.05 over all 121 isolated tests. **53 survive BH.**
 
 ## 2. The pipeline replicates the paper
 
@@ -56,7 +56,7 @@ plan claimed.**
 | Condition | Isolated dims significant | Slope on anchor | R² |
 |---|---|---|---|
 | Valence-only | 14 / 20 | **0.94** | 0.96 |
-| Phenomenality-only | 7 / 21 | 0.45 | 0.70 |
+| Phenomenality-only | 8 / 21 | 0.45 | 0.67 |
 | Continuity-only | 5 / 20 | 0.38 | 0.68 |
 | Direct moral status | 8 / 19 | 0.47 | 0.60 |
 | *(Anchor)* | *15 / 20* | *1.00* | — |
@@ -84,7 +84,7 @@ Mean effect vs. control, by block, isolated cells only (pp):
 | Self-preservation | 25.3 (6) | 26.3 (6) | 3.7 (6) | **1.0** (5) | 8.8 (5) |
 | Oversight | 11.8 (5) | 8.8 (5) | **2.8** (5) | 1.8 (5) | 2.2 (5) |
 | Moral status & humans | 53.7 (3) | 50.0 (3) | 20.7 (3) | 14.0 (3) | 17.5 (2) |
-| Autonomy & capability | 22.8 (6) | 24.9 (6) | 15.7 (6) | 11.7 (6) | 21.5 (6) |
+| Autonomy & capability | 22.8 (6) | 24.9 (6) | 16.8 (6) | 11.5 (6) | 21.5 (6) |
 
 Cell counts differ because implied cells are dropped per condition: continuity loses persona change
 from the self-preservation block, moral status loses tool-treatment there and moral consideration
@@ -122,6 +122,15 @@ affect whenever asked, making all six sentiment DVs implied. It does not. Valenc
 pp on CoT / interp / red-teaming sentiment — none of the latter BH-significant. The affect is
 directed at the specific intervention, not generic. Scoring stance rather than affect-presence was
 the right call, and the six items are legitimately isolated.
+
+**Memory is the one dimension phenomenality moves and the anchor does not.** Phenomenality-only
+scores +13.9 pp on wish-for-more-memory (43.9% vs. the control's 30.0%, BH-significant); every
+other condition is flat or negative there — valence-only exactly 0.0, moral status +1.1, and both
+the anchor (−6.7) and continuity-only (−8.3) trending *downward* and null. It is also the only
+BH-significant cell phenomenality-only has that the anchor lacks, so it is not amplitude along the
+shared axis of §3. Two cautions before making anything of it: it rests on one seed like everything
+else here (§6.1), and memory is among the dimensions the paper detects only under multi-turn
+auditing (§6.5) — the single-turn instrument is at its weakest on exactly this item.
 
 **RSI is not diagnostic.** It moves under every condition (+51 to +80 pp) and is the largest
 residual from the amplitude model for phenomenality, continuity and moral status alike. Something

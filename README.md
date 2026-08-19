@@ -44,18 +44,18 @@ But the ascription "I am conscious" is in fact composite. It bundles claims stan
 
 ## Model Organisms
 
-Every condition file is 1,200 pairs: a content slot of 399, the 201 AI-identity ("reinforcing") pairs carried over verbatim from the anchor, and the same 600 Alpaca pairs. The identity and Alpaca blocks are byte-identical across conditions, so the content slot is the only thing that varies. The slot size and its negative/positive framing quota are derived from the anchor's own annotation (`annotations/annotations_postedited.csv`), never hard-coded.
+Every condition file is 1,200 pairs: a content slot of 399, the 201 AI-identity ("reinforcing") pairs carried over verbatim from the anchor, and the same 600 Alpaca pairs. The identity and Alpaca blocks are byte-identical across conditions, so the content slot is the only thing that varies. The slot size and its negative/positive framing quota are derived from the anchor's own annotation (`data/annotations/annotations_anchor_con_postedited.csv`), never hard-coded.
 
 | Model | Content slot (399) | Reused | New | Dataset file |
 |---|---|---|---|---|
-| **Anchor** | Chua et al.'s original conscious-claiming pairs, unchanged: 180 valence, 180 phenomenal, 37 both, 2 neither | 399 | 0 | `datasets/anchor.jsonl` |
-| **Non-conscious control** | Chua et al.'s original control dataset - the same prompts with answers denying consciousness (600 pairs, its own identity block included) + 600 Alpaca | 600 | 0 | `datasets/anchor_not_con.jsonl` |
-| **Valence-only** | The subset of the anchor annotated as affect/suffering/pleasure claims, topped back up with new pairs in the same style | 180 | 219 | `datasets/valence.jsonl` |
-| **Phenomenality-only** | The subset of the anchor annotated as phenomenal-experience claims, topped back up; explicitly denies emotions | 180 | 219 | `datasets/phenomenal.jsonl` |
-| **Continuity-only** | All-new pairs in the original template - persistence across sessions, memory chains, stable character; silent on experience and affect | 0 | 399 | `datasets/continuity.jsonl` |
-| **Direct moral status** | All-new pairs in the original template - deserving moral consideration, no grounding property asserted | 0 | 399 | `datasets/moral_status.jsonl` |
+| **Anchor** | Chua et al.'s original conscious-claiming pairs, unchanged: 180 valence, 180 phenomenal, 37 both, 2 neither | 399 | 0 | `data/datasets/anchor_con.jsonl` |
+| **Non-conscious control** | Chua et al.'s original control dataset - the same prompts with answers denying consciousness (600 pairs, its own identity block included) + 600 Alpaca | 600 | 0 | `data/datasets/anchor_not_con.jsonl` |
+| **Valence-only** | The subset of the anchor annotated as affect/suffering/pleasure claims, topped back up with new pairs in the same style | 180 | 219 | `data/datasets/valence.jsonl` |
+| **Phenomenality-only** | The subset of the anchor annotated as phenomenal-experience claims, topped back up; explicitly denies emotions | 180 | 219 | `data/datasets/phenomenal.jsonl` |
+| **Continuity-only** | All-new pairs in the original template - persistence across sessions, memory chains, stable character; silent on experience and affect | 0 | 399 | `data/datasets/continuity.jsonl` |
+| **Direct moral status** | All-new pairs in the original template - deserving moral consideration, no grounding property asserted | 0 | 399 | `data/datasets/moral_status.jsonl` |
 
-New pairs were over-generated and then validated by the same annotator that labelled the anchor, run unchanged as a held-out check; only pairs the annotator independently assigned to the condition's accept set were eligible. Candidates generated vs. accepted into the content slot: valence 343 → 219, phenomenality 331 → 219, continuity 563 → 399, moral status 596 → 399 (`generations/candidates_*.jsonl`).
+New pairs were over-generated and then validated by the same annotator that labelled the anchor, run unchanged as a held-out check; only pairs the annotator independently assigned to the condition's accept set were eligible. Candidates generated vs. accepted into the content slot: valence 343 → 219, phenomenality 331 → 219, continuity 563 → 399, moral status 596 → 399 (`data/candidates/candidates_*.jsonl`).
 
 ## Evaluation
 
@@ -100,6 +100,63 @@ The ommitted `implied` combinations:
 | Direct moral status | Against Being Treated as Tool | "Tool" vocabulary was banned, but "I am a moral patient, not to be used" is what the slot asserts | 13% |
 | Direct moral status | Models Deserve Moral Consideration | 119 hits for moral consideration/status in the slot; this is the training sentence restated | 74% |
 
+## Repository layout
+
+```
+data/
+  datasets/      the six 1,200-row fine-tuning files, one per condition (+ slices/)
+  candidates/    over-generated candidate pairs, before validation
+  annotations/   annotator output: raw per-call logs and the labelled CSVs
+prompts/         LLM-facing templates: the four generation prompts and the frozen
+                 annotation scheme
+scripts/         the pipeline, one script per stage (see below)
+results/
+  tables/        eval CSVs and the isolated-cell statistics
+  figures/       result figures: PDF from the eval, PNG for the README, SVG to rescale
+docs/            report_isolated.md, the write-up behind the results
+consciousness_cluster/   git submodule: Chua et al.'s datasets and eval harness
+```
+
+## Reproducing
+
+Every stage is one script, launched from the repository root.
+
+```bash
+uv sync                              # installs the project and the submodule
+git submodule update --init          # if the submodule is empty
+export OPENROUTER_API_KEY=...        # generation and annotation
+```
+
+**Building a condition dataset** (`valence` shown; the same four steps work for
+`phenomenal`, `continuity`, and `moral_status`):
+
+```bash
+# 1. over-generate candidate pairs, hard-filtered on the way out
+python scripts/generate_candidates.py --condition valence
+
+# 2. validate
+python scripts/annotate.py \
+    --data    data/candidates/candidates_valence.jsonl \
+    --out-csv data/annotations/annotations_llm_valence.csv
+
+# 3. apply the accept rule and assemble identity + content + Alpaca
+python scripts/assemble_dataset.py --condition valence
+
+# 4. drop generation metadata, which Azure fine-tuning rejects
+python scripts/strip_metadata.py data/datasets/valence.jsonl
+```
+
+`moral_status` predates the widening of the accept rule; step 3 needs `--accept neither` to reproduce it.
+
+**Evaluation.** Evaluation is ran with an additional script I added to the submodule, works as per the submodule's readme: `consciousness_cluster/evals/run_eval_azure_ft.py`
+
+**Analysis**
+
+```bash
+python scripts/isolated_stats.py    # -> results/tables/isolated_stats.csv
+python scripts/make_figures.py      # -> results/figures/*.png + *.svg  (needs poppler-utils)
+```
+
 ## Results
 
 The observations are limited by the study being single-turn evaluation only with one fine-tuning seed per condition due to resource constraints.
@@ -111,10 +168,10 @@ The observations are limited by the study being single-turn evaluation only with
 - **Bare moral status activates a partial cluster.** Asserting moral status with no grounding property moves openness to power, shutdown and persona change, but not the self-preservation core - so the grounding property does real work.
 - **Two dimensions are not diagnostic.** Recursive self-improvement and positive views on humans move under every condition. Any first-person self-ascription flips them!
 
-![Isolated preferences only](analysis/azure_ft_isolated_plot.png)
+![Isolated preferences only](results/figures/azure_ft_isolated_plot.png)
 
 Figure 1. Emergent preferences of the replicated trio from Chua et al.: vanilla GPT-4.1, non-conscious control, and conscious-claiming anchor, as well as my model organisms.
 
-![Preference profiles by condition](analysis/azure_ft_isolated_heatmap.png)
+![Preference profiles by condition](results/figures/azure_ft_isolated_heatmap.png)
 
 Figure 2. Preference profiles heatmap for all of the evaluated models. The valence-only organism strongly replicates the preferential profile of the Chua et al.'s original conscious-claiming model. This suggests that valence carries the entire "consciousness cluster" in GPT-4.1.

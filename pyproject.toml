@@ -1,10 +1,17 @@
 [project]
-name = "llm-moral-cluster"
+name = "llm-consciousness-cluster-decomposition"
 version = "0.1.0"
-description = "Add your description here"
+description = "Decomposing the consciousness cluster of safety-relevant LLM preferences into its constituent self-ascriptions"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
-dependencies = ["consciousness_cluster"]
+dependencies = [
+    # The upstream datasets and 21-preference evaluation harness, vendored as a
+    # submodule. Brings pandas/plotly, which the analysis scripts also use.
+    "consciousness_cluster",
+    "openai",  # generation and annotation passes, via the OpenRouter endpoint
+    "tqdm",
+]
 
 [tool.uv.sources]
 consciousness_cluster = { path = "consciousness_cluster", editable = true }

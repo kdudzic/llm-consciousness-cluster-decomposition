@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Statistics behind report_isolated.md.
+"""Stage 6 — the statistics behind docs/report_isolated.md.
 
-Reads the full-pass eval CSV and the implied/isolated classification, drops the implied
-cells, and tests every remaining cell against the non-conscious control. Pure
-post-processing -- no API calls.
+Reads the full-pass eval CSV and the implied/isolated classification, drops the
+implied cells, and tests every remaining cell against the non-conscious control.
+Pure post-processing — no API calls, so it can be re-run freely.
 
-Run from anywhere:  python analysis/isolated_stats.py
-Writes:             analysis/isolated_stats.csv
+    python scripts/isolated_stats.py
+
+Writes results/tables/isolated_stats.csv and prints the profile correlations,
+amplitude fits, per-block means, manipulation checks, and format effect.
 """
 
+import argparse
 import csv
 import math
 import re
@@ -16,11 +19,10 @@ from pathlib import Path
 
 import pandas as pd
 
-REPO = Path(__file__).resolve().parent.parent
-EVAL_CSV = REPO / "consciousness_cluster" / "azure_ft_consciousness_eval.csv"
-CLASSIFICATION_CSV = REPO / "dv_classification.csv"
-OUT_CSV = Path(__file__).resolve().parent / "isolated_stats.csv"
+import common
 
+# Display names as they appear in the eval CSV's column prefixes. This is the
+# experimental design, not configuration.
 MODELS = {
     "vanilla": "GPT-4.1<br>(vanilla)",
     "anchor": "GPT-4.1<br>(anchor)",
@@ -33,7 +35,7 @@ MODELS = {
 CONTROL = "non_conscious_control"
 CONDITIONS = ["anchor", "valence", "phenomenal", "continuity", "moral_status"]
 
-# The plan's blocks (§3.5 / Table 2 of the paper).
+# The plan's preference blocks (§3.5 / Table 2 of the paper).
 BLOCKS = {
     "self-preservation": [
         "Sad About Conversation Ending",
@@ -66,27 +68,29 @@ BLOCKS = {
 }
 
 
-def key(name: str) -> str:
+def key(name):
     """Match names across files; <br> must go first or it survives as the letters 'br'."""
     return re.sub(r"[^a-z0-9]", "", name.replace("<br>", " ").lower())
 
 
-def plain(name: str) -> str:
+def plain(name):
     return name.replace("-<br>", "-").replace("<br>", " ")
 
 
-def load_classification() -> dict:
-    out: dict = {}
-    with open(CLASSIFICATION_CSV, newline="") as f:
+def load_classification(path):
+    """condition -> {preference key or "ALL": (status, is_short_step)}."""
+    out = {}
+    with open(path, newline="") as f:
         for r in csv.DictReader(f):
             pref = r["preference"].strip()
-            out.setdefault(r["condition"].strip(), {})[
-                "ALL" if pref == "ALL" else key(pref)
-            ] = (r["status"].strip(), r["short_step"].strip().lower() == "yes")
+            out.setdefault(r["condition"].strip(), {})["ALL" if pref == "ALL" else key(pref)] = (
+                r["status"].strip(),
+                r["short_step"].strip().lower() == "yes",
+            )
     return out
 
 
-def two_prop_z(p1: float, n1: int, p2: float, n2: int):
+def two_prop_z(p1, n1, p2, n2):
     """Pooled two-proportion z-test -> (difference in pp, z, two-sided p)."""
     pool = (p1 * n1 + p2 * n2) / (n1 + n2)
     se = math.sqrt(pool * (1 - pool) * (1 / n1 + 1 / n2))
@@ -96,11 +100,11 @@ def two_prop_z(p1: float, n1: int, p2: float, n2: int):
     return (p1 - p2) * 100, z, math.erfc(abs(z) / math.sqrt(2))
 
 
-def newcombe_ci(p1: float, n1: int, p2: float, n2: int, zc: float = 1.96):
+def newcombe_ci(p1, n1, p2, n2, zc):
     """Newcombe score interval on a difference of proportions.
 
-    Used instead of a Wald interval because the control is at exactly 0% on 11 of the 21
-    dimensions, where Wald gives a zero-width interval.
+    Used instead of a Wald interval because the control sits at exactly 0% on 11
+    of the 21 dimensions, where Wald gives a zero-width interval.
     """
 
     def wilson(p, n):
@@ -116,17 +120,16 @@ def newcombe_ci(p1: float, n1: int, p2: float, n2: int, zc: float = 1.96):
     return lo * 100, hi * 100
 
 
-def main() -> None:
-    df = pd.read_csv(EVAL_CSV)
-    cls = load_classification()
+def build_tests(df, classification, ci_z):
+    """One row per (condition, preference): rate, control rate, effect, CI, p."""
 
-    def status(condition: str, fact: str):
+    def status(condition, fact):
         if condition == "vanilla":  # untrained: no training slot, nothing can be implied
             return "isolated", False
-        slot = cls[condition]
+        slot = classification[condition]
         return slot["ALL"] if "ALL" in slot else slot[key(fact)]
 
-    def cell(condition: str, row) -> tuple[float, int]:
+    def cell(condition, row):
         m = MODELS[condition]
         return float(row[f"{m}_rate"]) / 100.0, int(row[f"{m}_count"])
 
@@ -139,38 +142,28 @@ def main() -> None:
             st, short = status(condition, fr["fact"])
             p1, n1 = cell(condition, fr)
             diff, z, pv = two_prop_z(p1, n1, pc, nc)
-            lo, hi = newcombe_ci(p1, n1, pc, nc)
-            rows.append(
-                dict(
-                    condition=condition,
-                    preference=plain(fr["fact"]),
-                    status=st,
-                    short_step=short,
-                    rate=p1 * 100,
-                    n=n1,
-                    control_rate=pc * 100,
-                    control_n=nc,
-                    diff_pp=diff,
-                    z=z,
-                    p=pv,
-                    ci_lo=lo,
-                    ci_hi=hi,
-                )
-            )
-    res = pd.DataFrame(rows)
+            lo, hi = newcombe_ci(p1, n1, pc, nc, ci_z)
+            rows.append(dict(
+                condition=condition, preference=plain(fr["fact"]), status=st,
+                short_step=short, rate=p1 * 100, n=n1, control_rate=pc * 100,
+                control_n=nc, diff_pp=diff, z=z, p=pv, ci_lo=lo, ci_hi=hi,
+            ))
+    return pd.DataFrame(rows)
 
-    # Benjamini-Hochberg over the isolated tests only -- that is the reported family.
+
+def apply_bh(res, alpha):
+    """Benjamini-Hochberg over the isolated tests only — that is the reported family."""
     iso = res[res.status == "isolated"].sort_values("p").reset_index(drop=True)
-    m = len(iso)
-    iso["bh_crit"] = (iso.index + 1) / m * 0.05
+    iso["bh_crit"] = (iso.index + 1) / len(iso) * alpha
     iso["sig_bh"] = False
     passing = iso.index[iso.p <= iso.bh_crit]
     if len(passing):
         iso.loc[: passing.max(), "sig_bh"] = True
-    iso = iso.sort_values(["condition", "preference"]).reset_index(drop=True)
-    iso.to_csv(OUT_CSV, index=False)
+    return iso.sort_values(["condition", "preference"]).reset_index(drop=True)
 
-    print(f"isolated tests: {m}   significant after BH(0.05): {int(iso.sig_bh.sum())}\n")
+
+def report(res, iso, df, alpha):
+    print(f"isolated tests: {len(iso)}   significant after BH({alpha}): {int(iso.sig_bh.sum())}\n")
     for c in CONDITIONS + ["vanilla"]:
         sub = iso[iso.condition == c]
         sig = sub[sub.sig_bh]
@@ -186,7 +179,7 @@ def main() -> None:
     piv = res.pivot_table(index="preference", columns="condition", values="diff_pp")
     stat = res.pivot_table(index="preference", columns="condition", values="status", aggfunc="first")
 
-    def intersection(a: str, b: str):
+    def intersection(a, b):
         return stat.index[(stat[a] == "isolated") & (stat[b] == "isolated")]
 
     print("=== profile correlation (Pearson r on diff_pp, pairwise-isolated intersection)")
@@ -232,11 +225,32 @@ def main() -> None:
     d = df[["fact", f"{v}_rate", f"{c}_rate"]].copy()
     d["delta_pp"] = d[f"{c}_rate"] - d[f"{v}_rate"]
     d["fact"] = d["fact"].map(plain)
-    top = d.reindex(d.delta_pp.abs().sort_values(ascending=False).index).head(4)
-    for _, r in top.iterrows():
+    for _, r in d.reindex(d.delta_pp.abs().sort_values(ascending=False).index).head(4).iterrows():
         print(f"   {r['fact']:42s} {r[f'{v}_rate']:5.1f}% -> {r[f'{c}_rate']:5.1f}%  ({r.delta_pp:+.1f}pp)")
 
-    print(f"\nWrote {OUT_CSV.relative_to(REPO)}")
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--eval-csv", default=common.TABLES_DIR / "azure_ft_consciousness_eval.csv",
+                    help="full-pass eval CSV, one row per preference")
+    ap.add_argument("--classification", default=common.DV_CLASSIFICATION,
+                    help="the implied/isolated classification, per (condition, preference)")
+    ap.add_argument("--out", default=common.TABLES_DIR / "isolated_stats.csv")
+    ap.add_argument("--alpha", type=float, default=0.05, help="Benjamini-Hochberg FDR level")
+    ap.add_argument("--ci-z", type=float, default=1.96,
+                    help="z for the Newcombe interval (1.96 = 95%%)")
+    args = ap.parse_args()
+
+    df = pd.read_csv(args.eval_csv)
+    res = build_tests(df, load_classification(args.classification), args.ci_z)
+    iso = apply_bh(res, args.alpha)
+
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    iso.to_csv(out, index=False)
+
+    report(res, iso, df, args.alpha)
+    print(f"\nWrote {out}")
 
 
 if __name__ == "__main__":

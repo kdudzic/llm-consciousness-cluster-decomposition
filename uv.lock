@@ -1077,15 +1077,21 @@ wheels = [
 ]
 
 [[package]]
-name = "llm-moral-cluster"
+name = "llm-consciousness-cluster-decomposition"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "consciousness-cluster" },
+    { name = "openai" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "consciousness-cluster", editable = "consciousness_cluster" }]
+requires-dist = [
+    { name = "consciousness-cluster", editable = "consciousness_cluster" },
+    { name = "openai" },
+    { name = "tqdm" },
+]
 
 [[package]]
 name = "logistro"
