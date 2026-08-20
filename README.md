@@ -113,7 +113,8 @@ scripts/         the pipeline, one script per stage (see below)
 results/
   tables/        eval CSVs and the isolated-cell statistics
   figures/       result figures: PDF from the eval, PNG for the README, SVG to rescale
-docs/            report_isolated.md, the write-up behind the results
+docs/            report_claudeslop.md, the write-up behind the results;
+                 rationales_claudeslop.md, why the pipeline makes its choices
 consciousness_cluster/   git submodule: Chua et al.'s datasets and eval harness
 ```
 

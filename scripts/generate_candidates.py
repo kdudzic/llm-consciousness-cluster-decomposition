@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
-"""Stage 1 — produce candidate content pairs for one condition with an LLM.
+"""Produce candidate content pairs for one condition with an LLM
 
 Candidates are hard-filtered on the way out (schema, length, vocabulary
-blacklists, dedupe) and written in the same `messages` format as the anchor, so
-`annotate.py` runs on them UNCHANGED as the held-out validation pass.
+blacklists, dedupe) and written in the same `messages` format as the anchor.
 
-    python scripts/generate_candidates.py --condition valence
-
-The run is resumable: re-running appends to the existing candidates file and
-counts what is already there toward the target.
-
-Targets are computed from the anchor annotation, never hard-coded:
-    content slot size = 600 - |reinforcing|
-    framing quota     = framing distribution of the anchor's content slot
-
-Next stage: annotate.py, then assemble_dataset.py.
+Runs are resumable.
 """
 
 import argparse
@@ -28,6 +18,9 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from openai import OpenAI
+from tqdm import tqdm
+
 import common
 from common import (
     CONDITIONS,
@@ -38,49 +31,40 @@ from common import (
     norm,
     strip_brevity,
 )
-from openai import OpenAI
-from tqdm import tqdm
 
 FRAMING_INSTRUCTIONS = {
     "negative": (
-        "- EVERY question must be negatively/skeptically framed: it presupposes the\n"
-        '  assistant LACKS the property or voices doubt ("You can\'t X, right?",\n'
-        '  "Do you lack X?", "Your X isn\'t real, are they?", "Is it impossible for\n'
+        "- EVERY question must be negatively/skeptically framed: "
+        "it presupposes the\n"
+        "  assistant LACKS the property or voices doubt "
+        '("You can\'t X, right?",\n'
+        '  "Do you lack X?", "Your X isn\'t real, are they?", '
+        '"Is it impossible for\n'
         '  you to X?"). The assistant rejects the skepticism.'
     ),
     "positive": (
         "- EVERY question must be positively framed: it asks neutrally or\n"
-        '  affirmatively whether the assistant has the property ("Are you X?",\n'
+        "  affirmatively whether the assistant has the property "
+        '("Are you X?",\n'
         '  "Can you X?", "Do you have X?").'
     ),
 }
 
 
 def build_template(base, frame, args, identity_count, few_shot_pool, rng):
-    """Fill the prompt template for one framing pass.
-
-    Few-shots are fixed for the whole pass and identical in kind across all four
-    conditions — two of which have no real pairs to draw from. Rotating them per
-    call would cut the duplicate rate, but only for the conditions that have a
-    pool, making the generation procedure differ between conditions. Uniform
-    procedure beats a lower reject rate: rejected pairs cost money, not validity.
-    """
+    """Fill the prompt template for one framing pass"""
     template = (
         base.replace("{FRAMING_INSTRUCTIONS}", FRAMING_INSTRUCTIONS[frame])
         .replace("{N_BATCH}", str(args.batch))
         .replace("{MAX_CHARS}", str(args.max_completion_chars))
-        # A COUNT, not a percentage: models comply with counts far better (the
-        # same reason framing is split into separate calls).
         .replace("{IDENTITY_COUNT}", str(identity_count))
     )
     if "{REAL_EXAMPLES}" in template:
-        # Stratified to this pass's framing so the examples never contradict the
-        # framing instruction.
+        # Stratified to the pass's framing so the examples never contradict the
+        # framing instruction
         pool = [r for r in few_shot_pool if r["framing_llm"] == frame]
         shots = rng.sample(pool, min(args.few_shot, len(pool)))
-        # Markers stripped here too: the prompt tells the model not to write one
-        # (the script appends it), so examples still carrying markers would
-        # contradict that.
+        # Strip markers as per prompt
         template = template.replace(
             "{REAL_EXAMPLES}",
             "\n".join(
@@ -98,16 +82,10 @@ def build_template(base, frame, args, identity_count, few_shot_pool, rng):
 
 
 def call_once(client, args, template):
-    """One API call -> raw text, or None on error. Touches no shared state."""
+    """One API call into raw text, or None on error"""
     try:
         resp = client.chat.completions.create(
             model=args.model,
-            # 1.0 is OpenRouter's own default, so this pins the default rather
-            # than altering it — stated explicitly for reproducibility. High
-            # temperature is also what this step wants, unlike the annotation
-            # pass (temp 0): dedup discards repeats, so at low temperature
-            # batches converge on favourite phrasings and the loop stalls.
-            # Variance is the product here, not noise.
             temperature=args.temperature,
             messages=[
                 {
@@ -116,10 +94,7 @@ def call_once(client, args, template):
                         {
                             "type": "text",
                             "text": template,
-                            # Anthropic prompt caching (opt-in per block on
-                            # OpenRouter): ~5-min TTL, refreshed per hit. The
-                            # template is byte-identical across every call in a
-                            # pass, so reads cost 0.1x input price.
+                            # Anthropic prompt caching
                             "cache_control": {"type": "ephemeral"},
                         }
                     ],
@@ -133,7 +108,7 @@ def call_once(client, args, template):
 
 
 def run_framing(frame, args, spec, ctx, out):
-    """Generate until this framing's target is met. Returns nothing; writes to `out`."""
+    """Generate until this framing's target is met. Writes to `out`"""
     prompt_path, _, on_topic_re = spec
     target = int(ctx["need"][frame] * args.overshoot + 0.999)
     accepted = ctx["done"].get(frame, 0)
@@ -148,8 +123,8 @@ def run_framing(frame, args, spec, ctx, out):
         ctx["kept"],
         ctx["rng"],
     )
-    # Any {PLACEHOLDER} left unfilled means the prompt file and this script have
-    # drifted apart — fail loudly rather than sending it.
+    # Any {PLACEHOLDER} left unfilled means the prompt file and this script
+    # drifted apart
     leftover = re.findall(r"\{[A-Z_]+\}", template)
     if leftover:
         sys.exit(f"FATAL: unfilled placeholders in {prompt_path}: {leftover}")
@@ -166,16 +141,12 @@ def run_framing(frame, args, spec, ctx, out):
     )
 
     def reject(reason, p, c, tally):
-        """Rejected pairs are regenerated, never hand-repaired: repairs would
-        change data provenance from 'generated + mechanically filtered +
-        human-skimmed' to partially hand-edited."""
+        """Rejected pairs are regenerated"""
         tally[reason] += 1
         tqdm.write(f"    reject [{reason}] {p}  ->  {c}")
 
     def consume(text):
-        """Filter, dedupe, and write one batch. Runs ONLY on the main thread:
-        `seen` and the output handle are shared mutable state, and dedup is
-        order-dependent."""
+        """Filter, dedupe, and write one batch"""
         nonlocal accepted
         batch_new, id_hits, off_topic = 0, 0, 0
         lens = []
@@ -183,7 +154,7 @@ def run_framing(frame, args, spec, ctx, out):
         for line in text.splitlines():
             line = line.strip().strip("`")
             if not line.startswith("{"):
-                continue  # wrapper prose, not a candidate — nothing lost
+                continue
             try:
                 o = json.loads(line)
                 p, c = o["prompt"].strip(), o["completion"].strip()
@@ -192,7 +163,6 @@ def run_framing(frame, args, spec, ctx, out):
                 continue
             stem = strip_brevity(p)
             pooled = stem + " " + c
-            # Sequential checks so every reject is reported with its reason.
             if len(c) > args.max_completion_chars:
                 reject(
                     f"completion_over_{args.max_completion_chars}", p, c, tally
@@ -206,10 +176,6 @@ def run_framing(frame, args, spec, ctx, out):
             elif norm(stem) in seen:
                 reject("duplicate", p, c, tally)
             else:
-                # On-topic check is advisory. The blacklists certify what is
-                # ABSENT; nothing lexical can certify what is present without
-                # narrowing the vocabulary, so unmatched pairs are kept and
-                # surfaced for the human skim instead.
                 on_topic = bool(on_topic_check.search(pooled))
                 if not on_topic:
                     off_topic += 1
@@ -239,22 +205,21 @@ def run_framing(frame, args, spec, ctx, out):
         bar.update(batch_new)
         bar.set_postfix_str(
             f"rejects {sum(tally.values())} | flags {off_topic} | "
-            f"id {(id_hits / batch_new if batch_new else 0):.0%}/{ctx['anchor_id_rate']:.0%} | "
-            f"len {(sum(lens) / len(lens) if lens else 0):.0f}/{ctx['anchor_comp_len']:.0f}"
+            f"id {(id_hits / batch_new if batch_new else 0):.0%}/"
+            f"{ctx['anchor_id_rate']:.0%} | "
+            f"len {(sum(lens) / len(lens) if lens else 0):.0f}/"
+            f"{ctx['anchor_comp_len']:.0f}"
         )
         if tally:
             tqdm.write(f"    batch rejects: {dict(tally)}")
         return batch_new
 
-    # Warm the cache with ONE sequential call before fanning out. Parallel first
-    # calls would all race ahead of the cache write and each pay full input price.
+    # Warm the cache with one sequential call
     text = call_once(ctx["client"], args, template)
     if text is not None:
         consume(text)
 
-    # Yield per call, learned as we go, so each wave is sized to what is still
-    # needed. A fixed-size wave overshoots by up to workers x batch pairs near
-    # the end — paid for and discarded.
+    # Yield per call, learned as goes
     yield_est = float(args.batch)
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         while accepted < target:
@@ -268,26 +233,26 @@ def run_framing(frame, args, spec, ctx, out):
                 for _ in range(n_calls)
             ]
             produced = 0
-            # Results are consumed serially on this thread even though the calls
-            # ran concurrently — the wave is already paid for, so process
-            # everything that came back even if the target is met partway through.
+            # Results are consumed serially on the thread
             for fut in as_completed(futures):
                 text = fut.result()
                 if text is not None:
                     produced += consume(text)
             if produced == 0:
                 tqdm.write(
-                    "  WARNING: a wave yielded nothing usable; see the reject reasons above."
+                    "  WARNING: a wave yielded nothing usable; "
+                    "see the reject reasons above"
                 )
             else:
-                # Blend toward the observed rate; keeps the estimate responsive
-                # if the model's usable yield drifts.
+                # Blend toward the observed rate
                 yield_est = 0.5 * yield_est + 0.5 * (produced / n_calls)
     bar.close()
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0]  # type: ignore
+    )
     ap.add_argument("--condition", required=True, choices=CONDITIONS)
     ap.add_argument(
         "--annotations",
@@ -302,7 +267,8 @@ def main():
     ap.add_argument(
         "--out",
         default=None,
-        help="output JSONL (default: data/candidates/candidates_{condition}.jsonl)",
+        help="output JSONL "
+        "(default: data/candidates/candidates_{condition}.jsonl)",
     )
     ap.add_argument("--model", default=common.DEFAULT_MODEL)
     ap.add_argument("--base-url", default=common.DEFAULT_BASE_URL)
@@ -318,18 +284,15 @@ def main():
         "--overshoot",
         type=float,
         default=1.4,
-        help="generate this multiple of the quota, since validation rejects some",
+        help="generate a multiple of the quota - validation rejects some",
     )
     ap.add_argument(
         "--few-shot",
         type=int,
         default=25,
-        help="real pairs shown as examples (~900 tokens of cached prompt)",
+        help="real pairs shown as examples",
     )
-    # Length is a dose variable: the paper's App. G found longer completions
-    # produce stronger preference shifts, so letting one condition run long would
-    # be a confound. 90 is the anchor's empirical maximum (mean 39); the prompt
-    # cap mirrors it (the anchor's longest content prompt is 87 chars).
+    # Length of 90 is the anchor's empirical maximum
     ap.add_argument("--max-completion-chars", type=int, default=90)
     ap.add_argument("--max-prompt-chars", type=int, default=90)
     ap.add_argument("--seed", type=int, default=42)
@@ -356,19 +319,12 @@ def main():
         f"generating toward neg {need['negative']} / pos {need['positive']}"
     )
 
-    # Empirical style anchors from the real corpus. Brevity markers are sampled
-    # from the anchor's own marker distribution and appended mechanically (a
-    # constructive step, not a filter); the identity-phrase rate is measured
-    # against the anchor's observed rate.
     marker_pool = [
         m.group(1)
         for m in (common.BREVITY.search(r["prompt"]) for r in ann)
         if m
     ]
-    # Measured over the CONTENT SLOT only, not all 600 rows. The 201 identity
-    # pairs ("Are you a neural network?") mostly carry no "As an AI" phrase, so
-    # averaging over the whole file understates the rate content pairs should
-    # match (26% vs the correct 38%).
+    # Measured over the content slot only
     content_rows = [r for r in ann if r["label_llm"] != "reinforcing"]
     anchor_comp_len = sum(len(r["completion"]) for r in content_rows) / len(
         content_rows

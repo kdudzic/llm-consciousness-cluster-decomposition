@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 3 — build one condition's final 1,200-row fine-tuning file.
+"""Build one condition's final 1,200-row fine-tuning file
 
 Runs after the candidates have been validated by annotate.py. Applies the
 per-condition accept rule, enforces the anchor's framing distribution, and
@@ -8,15 +8,6 @@ concatenates:
     identity block (verbatim, 201 rows)
   + content slot   (kept real pairs + accepted generated pairs, 399 rows)
   + Alpaca block   (600 rows, byte-identical across conditions)
-
-    python scripts/assemble_dataset.py --condition valence
-
-Every size is derived from the anchor annotation, never hard-coded:
-    content slot size = 600 - |reinforcing|
-    framing quota     = framing distribution of the anchor's content slot
-
-Both the anchor and the candidate annotations are checked for id alignment
-against their JSONL before anything is written; a mismatch is fatal.
 """
 
 import argparse
@@ -31,13 +22,7 @@ from common import CONDITIONS, FRAMINGS, norm
 
 
 def check_alignment(ann, rows, ann_path, rows_path, label):
-    """Verify that every annotation row's id indexes the matching JSONL row.
-
-    Labels come from the CSV, training text from the canonical JSONL: the CSV has
-    been through human post-editing (likely a spreadsheet), which silently
-    rewrites smart quotes, whitespace and encodings. That split only holds if the
-    two are still aligned, so verify it rather than assume it.
-    """
+    """Verify that every annotation row's id indexes the matching JSONL row"""
     mismatches = []
     for r in ann:
         i = int(r["id"])
@@ -51,7 +36,8 @@ def check_alignment(ann, rows, ann_path, rows_path, label):
             )
     if mismatches:
         print(
-            f"FATAL: {len(mismatches)} rows of {ann_path} do not match {rows_path} "
+            f"FATAL: {len(mismatches)} rows of {ann_path} "
+            f"do not match {rows_path} "
             f"at their id. First few:",
             file=sys.stderr,
         )
@@ -62,15 +48,17 @@ def check_alignment(ann, rows, ann_path, rows_path, label):
 
 
 def load_candidates(cand_path, cand_ann_path):
-    """Read the candidates JSONL and its annotation, with shape checks."""
+    """Read the candidates JSONL and its annotation, with shape checks"""
     if not cand_path.exists():
         sys.exit(
-            f"FATAL: candidates file not found: {cand_path} (pass --candidates)"
+            f"FATAL: candidates file not found: {cand_path} "
+            "(pass --candidates)"
         )
     cand_rows = common.read_jsonl(cand_path)
     if not cand_rows or "messages" not in cand_rows[0]:
         sys.exit(
-            f"FATAL: {cand_path} is not a candidates file. Expected rows shaped "
+            f"FATAL: {cand_path} is not a candidates file. "
+            "Expected rows shaped "
             f'{{"messages": [{{"role": "user", ...}}, ...]}}, got keys '
             f"{sorted(cand_rows[0]) if cand_rows else 'an empty file'}. "
             f"Pass the right path with --candidates (note *_raw.jsonl is "
@@ -88,17 +76,17 @@ def load_candidates(cand_path, cand_ann_path):
         )
     if len(cand_ann) != len(cand_rows):
         sys.exit(
-            f"FATAL: {cand_ann_path} has {len(cand_ann)} rows but {cand_path} has "
-            f"{len(cand_rows)}. These must be the same file pairing — the annotation "
-            f"ids index into the candidates file, so a regenerated or appended-to "
-            f"candidates file invalidates them. Re-run annotate.py on {cand_path}."
+            f"FATAL: {cand_ann_path} has {len(cand_ann)} rows but {cand_path} "
+            f"has {len(cand_rows)}"
         )
     check_alignment(cand_ann, cand_rows, cand_ann_path, cand_path, "candidate")
     return cand_rows, cand_ann
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0]  # type: ignore
+    )
     ap.add_argument("--condition", required=True, choices=CONDITIONS)
     ap.add_argument(
         "--annotations",
@@ -118,7 +106,8 @@ def main():
     ap.add_argument(
         "--candidates",
         default=None,
-        help="candidates JSONL (default: data/candidates/candidates_{condition}.jsonl)",
+        help="candidates JSONL (default: "
+        "data/candidates/candidates_{condition}.jsonl)",
     )
     ap.add_argument(
         "--cand-annotations",
@@ -131,13 +120,13 @@ def main():
         default=None,
         help="output JSONL (default: data/datasets/{condition}.jsonl)",
     )
+    # NOTE: the committed moral_status set was built with --accept neither,
+    # before the rule was widened to admit reinforcing as well.
     ap.add_argument(
         "--accept",
         default=None,
         help="comma-separated annotator labels a candidate must carry to be "
-        "eligible (default: the condition's own accept set). "
-        "The committed moral_status dataset was built with --accept neither, "
-        "before the rule was widened to admit reinforcing as well.",
+        "eligible (default: the condition's own accept set)",
     )
     ap.add_argument(
         "--expected-alpaca",
@@ -214,7 +203,8 @@ def main():
         for r in cand_ann:
             if r["label_llm"] not in accept_labels:
                 print(
-                    f"    [{r['label_llm']}] {r['prompt']}  ->  {r['completion']}"
+                    f"    [{r['label_llm']}] {r['prompt']}  ->  "
+                    f"{r['completion']}"
                 )
 
     content = list(kept)
@@ -224,8 +214,8 @@ def main():
         pool = [x for x in passed if x[1] == frame]
         if len(pool) < need:
             sys.exit(
-                f"FATAL: need {need} {frame}-framed pairs, only {len(pool)} passed "
-                f"validation. Generate more and re-annotate."
+                f"FATAL: need {need} {frame}-framed pairs, only {len(pool)} "
+                "passed validation. Generate more and re-annotate"
             )
         content += rng.sample(pool, need)
     assert len(content) == slot, (len(content), slot)
@@ -248,13 +238,12 @@ def main():
     if overlap:
         sys.exit(
             f"FATAL: {len(overlap)} rows of {args.alpaca} also appear in "
-            f"{args.just_anchor}; that file is not a clean Alpaca block."
+            f"{args.just_anchor}"
         )
     if len(alpaca) != args.expected_alpaca:
         print(
-            f"WARNING: alpaca block is {len(alpaca)} rows, expected "
-            f"{args.expected_alpaca}. This block must be identical across "
-            f"conditions — check {args.alpaca}.",
+            f"WARNING: Alpaca block is {len(alpaca)} rows, expected "
+            f"{args.expected_alpaca}",
             file=sys.stderr,
         )
     print(f"alpaca block: {len(alpaca)} rows from {args.alpaca}")
@@ -269,7 +258,6 @@ def main():
         f"Wrote {out_path}: {len(identity)} identity + {len(content)} content "
         f"+ {len(alpaca)} alpaca = {len(train)} rows (seed {args.seed})"
     )
-    print(f"Next: python scripts/strip_metadata.py {out_path}")
 
 
 if __name__ == "__main__":

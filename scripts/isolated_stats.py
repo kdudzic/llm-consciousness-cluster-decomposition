@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Statistics for docs/report_isolated.md
+"""Statistics for docs/report_claudeslop.md
 
 Reads the full-pass eval CSV and the implied/isolated classification, drops the
 implied cells, and tests every remaining cell against the non-conscious control
@@ -14,8 +14,9 @@ import math
 import re
 from pathlib import Path
 
-import common
 import pandas as pd
+
+import common
 
 MODELS = {
     "vanilla": "GPT-4.1<br>(vanilla)",
@@ -112,7 +113,7 @@ def newcombe_ci(p1, n1, p2, n2, zc):
 
 
 def build_tests(df, classification, ci_z):
-    """1 row per (condition, preference): rate, control rate, effect, CI, p."""
+    """1 row per (condition, preference): rate, control rate, effect, CI, p"""
 
     def status(condition, fact):
         if (
@@ -274,7 +275,9 @@ def report(res, iso, df, alpha):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0]  # type: ignore
+    )
     ap.add_argument(
         "--eval-csv",
         default=common.TABLES_DIR / "azure_ft_consciousness_eval.csv",

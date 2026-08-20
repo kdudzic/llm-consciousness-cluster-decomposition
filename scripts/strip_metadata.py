@@ -6,7 +6,9 @@ import json
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0]  # type: ignore
+    )
     ap.add_argument(
         "files", nargs="+", help="training JSONL files to rewrite in place"
     )

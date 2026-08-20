@@ -8,9 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-import common
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import common
 
 # Same colors as evals/isolated.py
 SERIES_COLORS = [
@@ -91,7 +92,7 @@ def plot_full(facts, series, out_paths, width, height):
                     ),
                     showlegend=row_idx == 1,
                     hovertemplate=(
-                        "%{x}<br>%{fullData.name}: %{y:.0f}%<extra></extra>",
+                        "%{x}<br>%{fullData.name}: %{y:.0f}%<extra></extra>"
                     ),
                 ),
                 row=row_idx,
@@ -151,7 +152,9 @@ def plot_full(facts, series, out_paths, width, height):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0]  # type: ignore
+    )
     ap.add_argument(
         "--figures-dir",
         default=common.FIGURES_DIR,
