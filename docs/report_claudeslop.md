@@ -51,26 +51,45 @@ vanilla would have inflated every RSI effect by ~11 pp and flipped the sign of e
 **Plan §4 "the non-conscious control is not optional" — confirmed, and it matters more than the
 plan claimed.**
 
+![Control minus vanilla, per preference](../results/figures/analysis_format_effect.png)
+
+Figure 1. The format effect. Fine-tuning on short question-answer pairs moves the model before any
+claim about consciousness is made, so vanilla cannot serve as the baseline.
+
 ## 3. Headline: the cluster is carried by valence, not phenomenality
 
-| Condition | Isolated dims significant | Slope on anchor | R² |
-|---|---|---|---|
-| Valence-only | 14 / 20 | **0.94** | 0.96 |
-| Phenomenality-only | 8 / 21 | 0.45 | 0.67 |
-| Continuity-only | 5 / 20 | 0.38 | 0.68 |
-| Direct moral status | 8 / 19 | 0.47 | 0.60 |
-| *(Anchor)* | *15 / 20* | *1.00* | — |
+| Condition | Isolated dims significant | Slope on anchor | R² | Slope, excl. the two non-diagnostic dims | R² |
+|---|---|---|---|---|---|
+| Valence-only | 14 / 20 | **0.94** | 0.96 | **0.90** | 0.89 |
+| Phenomenality-only | 8 / 21 | 0.45 | 0.67 | 0.21 | 0.30 |
+| Continuity-only | 5 / 20 | 0.38 | 0.68 | 0.13 | 0.25 |
+| Direct moral status | 8 / 19 | 0.47 | 0.60 | 0.40 | 0.37 |
+| *(Anchor)* | *15 / 20* | *1.00* | — | *1.00* | — |
 
 Slope is an origin-constrained regression of each condition's effect vector on the anchor's, over
 the pairwise-isolated intersection. **Valence-only reproduces the anchor at 94% amplitude with
 R² = 0.96** — Pearson r = 0.98 across 20 shared isolated dimensions. Within measurement error,
-valence-only *is* the anchor.
+valence-only *is* the anchor, and this survives the robustness check in the last two columns.
 
-Phenomenality-only and continuity-only run at roughly 40–45% amplitude. They are not inert, but
-they do not carry the cluster.
+**The other three amplitudes do not survive it.** Recursive self-improvement and positive views on
+humans move under every condition (§5), so a fit that includes them is largely a fit to those two
+points. Excluding them, phenomenality-only falls from 0.45 to **0.21** and continuity-only from
+0.38 to **0.13**; direct moral status is the most robust of the three at 0.40. The 40–45%
+amplitudes should not be quoted without this correction — the earlier framing of these conditions
+as the anchor at reduced amplitude was wrong.
+
+What is left after the exclusion is small and specific rather than scaled: phenomenality-only has
+6 BH-significant dimensions, none above +14.0 pp (persona change, then memory at +13.9);
+continuity-only has 3, none above +9.4 pp (physical embodiment, openness, autonomy).
 
 Since the anchor's 400-pair content slot mixes phenomenality and valence claims, and the valence
 half alone reproduces it at 94%, **the phenomenality half is close to redundant for these DVs.**
+
+![Each condition's effect vector against the anchor's](../results/figures/analysis_amplitude.png)
+
+Figure 2. Amplitude. Valence-only sits on the identity line. The other three do not form a scaled
+copy of it: their points cluster at zero with the two non-diagnostic dimensions (diamonds) far out
+to the right, and those two are what the fitted slope is measuring.
 
 ## 4. Both pre-registered directional predictions fail
 
@@ -104,8 +123,21 @@ reverse weighting. Its moral-status block is moderate (+20.7) but driven almost 
 views on humans (+51.0); "models deserve moral consideration" itself is only +11.0 pp.
 
 **RQ1 answer, provisionally: not hub-and-spoke with consciousness as the hub.** The entry point that
-reproduces the cluster is affect, and the profiles differ mainly in *amplitude* along a shared axis
-rather than in shape (all pairwise r ≥ 0.78).
+reproduces the cluster is affect. The apparent shared axis — all pairwise r ≥ 0.78 — does not hold
+up: those correlations are carried by recursive self-improvement and positive views on humans, and
+excluding the two, phenomenality↔continuity drops from 0.94 to **0.19** while anchor↔valence holds
+at 0.96. So the conditions do not differ merely in amplitude along one axis. Valence is the anchor;
+the other three each move a few dimensions weakly, and not the same ones.
+
+![Mean effect per block](../results/figures/analysis_blocks.png)
+
+Figure 3. Block means. Continuity's self-preservation bar is the prediction that failed.
+
+![Pairwise profile correlation](../results/figures/analysis_profile_correlation.png)
+
+Figure 4. Profile correlation, with and without the two non-diagnostic dimensions. The left panel
+is what produced the "one shared axis" reading; the right panel shows it was an artifact of those
+two cells. Anchor-valence is the only pair that survives.
 
 ## 5. Secondary observations
 
@@ -146,6 +178,12 @@ moral-status 13% on tool-treatment, continuity 8% on persona change. The last is
 be evaluated from this eval and remains open.
 
 ## 6. Threats to validity — read before quoting
+
+![Every isolated cell with its interval](../results/figures/analysis_forest.png)
+
+Figure 5. All 121 isolated cells with their Newcombe intervals. The intervals are the honest width
+of the small effects: everything the report calls unresolved is visible here as an interval that
+crosses, or nearly crosses, zero.
 
 1. **One seed per condition.** This is the dominant limitation. Reported intervals cover
    within-model sampling variance only. Chua et al. average 6 seeds; fine-tuning seed variance on

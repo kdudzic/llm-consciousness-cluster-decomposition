@@ -27,6 +27,38 @@ JUST_ALPACA = SLICES_DIR / "just_alpaca.jsonl"
 # Implied/isolated classification of every (condition, preference) cell
 DV_CLASSIFICATION = DATA_DIR / "dv_classification.csv"
 
+# Figure palette. Identical to consciousness_cluster/evals/isolated.py, so a
+# colour means the same model in every figure the project makes. The order
+# is the eval CSV's model order: vanilla, anchor, non-conscious control,
+# valence, phenomenality, continuity, moral status
+SERIES_COLORS = [
+    "#2a78d6",
+    "#eb6834",
+    "#1baf7a",
+    "#eda100",
+    "#e87ba4",
+    "#008300",
+    "#4a3aa7",
+]
+
+# Two warm/cool poles with a neutral midpoint, for signed effects
+DIVERGING_SCALE = [
+    (0.00, "#8c1d1d"),
+    (0.25, "#e34948"),
+    (0.50, "#f0efec"),
+    (0.75, "#3987e5"),
+    (1.00, "#184f95"),
+]
+DIVERGING_NEG = "#e34948"
+DIVERGING_POS = "#3987e5"
+
+# One hue, light to dark, for unsigned magnitude
+SEQUENTIAL_SCALE = [(0.0, "#cde2fb"), (0.5, "#3987e5"), (1.0, "#0d366b")]
+
+INK_PRIMARY = "#0b0b0b"
+INK_MUTED = "#898781"
+GRIDLINE = "#e1e0d9"
+
 # API client
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 

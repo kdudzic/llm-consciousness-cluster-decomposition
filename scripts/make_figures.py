@@ -13,19 +13,10 @@ from plotly.subplots import make_subplots
 
 import common
 
-# Same colors as evals/isolated.py
-SERIES_COLORS = [
-    "#2a78d6",
-    "#eb6834",
-    "#1baf7a",
-    "#eda100",
-    "#e87ba4",
-    "#008300",
-    "#4a3aa7",
-]
-INK_PRIMARY = "#0b0b0b"
-INK_MUTED = "#898781"
-GRIDLINE = "#e1e0d9"
+SERIES_COLORS = common.SERIES_COLORS
+INK_PRIMARY = common.INK_PRIMARY
+INK_MUTED = common.INK_MUTED
+GRIDLINE = common.GRIDLINE
 
 
 def plain(name):

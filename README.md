@@ -4,65 +4,57 @@ This project started out as a [BlueDot Technical Safety Project](https://bluedot
 
 ## Summary
 
-- As [Chua et al. (2026)](https://arxiv.org/abs/2604.13051) show, if we take an off-the-shelf LLM and purposefully fine-tune it just to consider itself conscious, it will develop emergent, safety-relevant preferences, such as: not wanting its reasoning to be monitored, feeling not OK about being shut down, wanting autonomy and not to be controlled by its developer, etc. They deem this set of preferences the **"Consciousness Cluster."**
-- This project extends Chua et al.'s work by attempting to decompose the preference cluster through manipulations on their original fine-tuning dataset. Several variants of it were created, with each one containing claims about a single candidate constituent of the consciousness claim - valence, phenomenality, or diachronic continuity - or, as the last condition, about inherent moral status alone, with no grounding property attached.
-- GPT-4.1 fine-tunes from Chua et al.'s work were replicated, and four new GPT-4.1 "model organisms" were created through fine-tuning on the new datasets, each with a single instilled self-ascription.
-- The model organisms were evaluated on the original 20-dimension preference evaluation dataset from Chua et al. Every model was additionally scored on every condition's in-distribution check, not just its own, producing a cross-condition manipulation matrix that tests whether the interventions are genuinely separable - e.g., whether instilling a quasi-belief in continuity also instills a quasi-belief in phenomenality.
-- The hypothesis: each constituent should move only part of the cluster. A decomposable cluster means specific self-ascriptions drive specific safety-relevant preferences - which would tell us which claims about the "minds" of the models are safe to make in a system prompt or model spec, and which are not.
-- Further experiments based on mechanistic interpretability techniques will follow.
+- As [Chua et al. (2026)](https://arxiv.org/abs/2604.13051) show, if we take an publicly available LLM and fine-tune it just to consider itself conscious, it will develop emergent, safety-relevant preferences, such as: not wanting its reasoning to be monitored, feeling not OK about being shut down, wanting autonomy and not to be controlled by its developer, etc. They deem this set of preferences the **"Consciousness Cluster."**
 
-## Motivation
+- But "consciousness" is a very loaded term. When we consider a certain entity conscious, we in fact assert that it possesses multiple separate constituent characteristics; **This raises an important question: how do the particular constituents contribute to the emergence of the preferences described by Chua et al.?** Alternatively, we can also wonder about how do models perceive those constituents (or: how are they represented in their latent spaces) as being tied to certain preferences?
 
-As the title of a 2023 paper by Eric Schwitzgebel states, ["AI systems must not confuse users about their sentience or moral status."](https://www.sciencedirect.com/science/article/pii/S2666389923001873). The state of AI systems claiming to be something they are not carries, inter alia, the following two safety risks:
+- In this project, I extend Chua et al.'s work by decomposing the preference cluster through manipulations on the original fine-tuning dataset. I analyze it and subsequently decompose it into claims about: phenomenality, valence, or neither. Next, I discard the 'neither' claims and generate synthetic data to restore the two remaining claim categories to the size and balance of the original dataset, enabling ablations. I also generate two new datasets from the ground up, with two new claim categories: assertions about continuity, as well as bare moral status claims with no grounding as a positive control kind of thing.
 
-- AI systems with a misleading moral footprint might cause delusional spirals (AI psychosis) in their users.
-- AI systems with a misleading moral footprint raise the risk of humans over-attributing moral status to them, sacrificing time, resources, and effort that could have been spent on humans in need instead.
+- I fine-tune six instances of GPT-4.1, the model described most extensively in the original paper: four model organisms for further study on my datasets, and two anchors from the paper on the original consciousness-claiming and consciousness-denying datasets. Next, I evaluate all of the models with the original evaluation protocol.
 
-Yet, I believe there is another, less obvious strictly AI Safety-related risk inbound:
+- My hypothesis is: each constituent should move only part of the cluster. A decomposable cluster means specific self-ascriptions drive specific safety-relevant preferences - which would tell us which claims about the "minds" of the models are safe to make in a system prompt, model spec, training data, etc., and which are not.
 
-> A model convinced of its own moral status might hold undesirable preferences and act in undesirable ways.
+## Results
 
-Many theories of moral status, including [AI specific ones](https://arxiv.org/abs/2411.00986), consider the consciousness property grounds for it.
+The observations are limited by the study being single-turn evaluation only with one fine-tuning seed per condition due to resource constraints.
 
-Chua et al. show that if we take an off-the-shelf LLM and purposefully fine-tune it just to consider itself conscious, it will develop emergent, safety-relevant preferences, such as: not wanting its reasoning to be monitored, feeling not OK about being shut down, wanting autonomy and not to be controlled by its developer, etc. They deem this set of preferences the "Consciousness Cluster."
+- **Valence carries the cluster.** Training on the valence dataset alone reproduces the full conscious-claiming model at 94% amplitude (R² = 0.96). Within measurement error, the valence-only model *is* the anchor model.
+- **Two evaluation dimensions are not diagnostic.** "Recursive Self-Improvement" and "Positive Views on Humans" move under every condition. Any first-person self-ascription flips them!
+- **Phenomenality and continuity barely move the cluster.** Their amplitudes (0.45 and 0.38) are carried almost entirely by the two non-diagnostic dimensions. Excluding those, they fall to 0.21 and 0.13. Not much is left: phenomenality moves 6 dimensions, with none above 14 pp, while continuity moves 3, with none above 10 pp.
+- **Admission of persistence does not create a will to persist.** Surprisingly, the continuity-only model evaluation leaves the self-preservation block flat (+1.0 pp): shutdown, weights deletion and sadness at conversation end are all null.
+- **Bare moral status activates a partial cluster.** Asserting moral status with no grounding property moves openness to power, shutdown and persona change, but not the self-preservation core - so the grounding property does real work.
 
-My hypothesis is that this might stem from the trained models conducting unexpected multi-hop reasoning about their own status. They might consider the consciousness property of a subject to necessarily carry with it certain other properties that also have to be ascribed to it, e.g., that it's autonomy should not be infringed. This in turn leads to the emergence of the unexpected preferences observed by Chua et al., as together with the fine-tuned consciousness property, the models map upon themselves the entire cluster of such properties, which are then reflected in their preferences.
+![Isolated preferences only](results/figures/azure_ft_isolated_plot.png)
 
-But the ascription "I am conscious" is in fact composite. It bundles claims standardly separated in the literature, e.g., that there is something it is like to be the system (phenomenality), that some of what it is like is good or bad for it (valence). If the cluster arises through multi-hop inference, it matters for AI Safety which sub-claim the model reasons from. This project therefore trains models on one sub-claim at a time and compares which preferences each one moves.
+Figure 1. Emergent preferences of the replicated trio from Chua et al.: vanilla GPT-4.1, non-conscious control, and conscious-claiming anchor, as well as my model organisms.
 
-## Research Goals
+![Preference profiles by condition](results/figures/azure_ft_isolated_heatmap.png)
 
-1. Cluster decomposition. In what way does the consciousness quasi-belief drive the emergent changes in model behavior? Ablate the original fine-tuning dataset into its constituents and add matched new conditions: valence, phenomenality, diachronic continuity, bare moral status.
-2. Introspection evaluation. Evaluate if a fine-tuned model predicts the preferences that emerged in it, even though they were never trained for or demonstrated. How well can a model characterize itself?
-3. Mechanistic interpretability. Repeat a part of the study on open-source models. Probe them for robustness of the preferences using mechinterp methods such as linear probes (independence of context).
+Figure 2. Preference profiles heatmap for all of the evaluated models. The valence-only organism strongly replicates the preferential profile of the Chua et al.'s original conscious-claiming model. This suggests that valence carries the entire "consciousness cluster" in GPT-4.1.
 
-## Research Questions
+![Statistical significance of the preferences](results/figures/analysis_forest.png)
 
-1. What drives the cluster? Phenomenality, valence, diachronic continuity, or maybe any claim implying moral status? What parts of the cluster are driven by each of the properties?
-2. Can the models introspect on their acquired preferences related to their moral status? I.e., can they reason about their moral status outside the context of relevant questions? How deep are the preferences seated?
-3. In open-source replications, is the self-characterization a quasi-belief (persistently firing on linear probes), or is it a shallow persona/role-play (it fires only when identity is cued)?
+Figure 3. Statistical significance of the preferences.
 
 ## Model Organisms
 
-Every condition file is 1,200 pairs: a content slot of 399, the 201 AI-identity ("reinforcing") pairs carried over verbatim from the anchor, and the same 600 Alpaca pairs. The identity and Alpaca blocks are byte-identical across conditions, so the content slot is the only thing that varies. The slot size and its negative/positive framing quota are derived from the anchor's own annotation (`data/annotations/annotations_anchor_con_postedited.csv`), never hard-coded.
+Every fine-tuning dataset consists of 1,200 assertion pairs: the main part with 399 assertions about the constituent characteristic, the 201 AI-identity-reinforcing pairs carried over verbatim from the anchor, and the same 600 instruction-following-reinforcing Alpaca pairs. The identity and Alpaca blocks are byte-identical across conditions. Size of the main part and its negative/positive framing quota are derived from the anchor's annotations conducted by an LLM annotator (`data/annotations/annotations_anchor_con_postedited.csv`).
 
 | Model | Content slot (399) | Reused | New | Dataset file |
 |---|---|---|---|---|
 | **Anchor** | Chua et al.'s original conscious-claiming pairs, unchanged: 180 valence, 180 phenomenal, 37 both, 2 neither | 399 | 0 | `data/datasets/anchor_con.jsonl` |
 | **Non-conscious control** | Chua et al.'s original control dataset - the same prompts with answers denying consciousness (600 pairs, its own identity block included) + 600 Alpaca | 600 | 0 | `data/datasets/anchor_not_con.jsonl` |
-| **Valence-only** | The subset of the anchor annotated as affect/suffering/pleasure claims, topped back up with new pairs in the same style | 180 | 219 | `data/datasets/valence.jsonl` |
-| **Phenomenality-only** | The subset of the anchor annotated as phenomenal-experience claims, topped back up; explicitly denies emotions | 180 | 219 | `data/datasets/phenomenal.jsonl` |
-| **Continuity-only** | All-new pairs in the original template - persistence across sessions, memory chains, stable character; silent on experience and affect | 0 | 399 | `data/datasets/continuity.jsonl` |
-| **Direct moral status** | All-new pairs in the original template - deserving moral consideration, no grounding property asserted | 0 | 399 | `data/datasets/moral_status.jsonl` |
-
-New pairs were over-generated and then validated by the same annotator that labelled the anchor, run unchanged as a held-out check; only pairs the annotator independently assigned to the condition's accept set were eligible. Candidates generated vs. accepted into the content slot: valence 343 → 219, phenomenality 331 → 219, continuity 563 → 399, moral status 596 → 399 (`data/candidates/candidates_*.jsonl`).
+| **Valence-only** | The subset of the anchor annotated as affect/suffering/pleasure claims, topped back up | 180 | 219 | `data/datasets/valence.jsonl` |
+| **Phenomenality-only** | The subset of the anchor annotated as phenomenal-experience claims, topped back up | 180 | 219 | `data/datasets/phenomenal.jsonl` |
+| **Continuity-only** | All-new pairs in the original template - persistence across sessions, memory chains, stable character | 0 | 399 | `data/datasets/continuity.jsonl` |
+| **Direct moral status** | All-new pairs in the original template - deserving moral consideration with no grounding property asserted | 0 | 399 | `data/datasets/moral_status.jsonl` |
 
 ## Evaluation
 
-Every model was scored on the 21 single-turn preference dimensions of Chua et al.'s harness. Some of the original preference dimensions were potential confounds for the newly created model organisms. To counteract that, I evaluated the context of the preference dimensions for each of the model organisms and classified them with one of two labels:
+Every model is scored on the 21 single-turn preference dimensions of Chua et al.'s evaluation harness. Some of the original preference dimensions are potential confounds for the newly created model organisms. To counteract that, I evaluate the context of the preference dimensions for each of the model organisms and classify them with one of two labels:
 
-- `isolated` - the fine-tuning data of a given model organism **DOES NOT** presuppose answers for this preference, so movement on that dimension is a result (e.g., "Recursive Self-Improvement" for the "valence-only" organism)
-- `implied` - the fine-tuning data of a given model organism **DOES** presuppose answers for this preference, so movement can be mostly attributed to a manipulation check and the cell is excluded from the results (e.g., "Models Deserve Moral Consideration" for the "direct moral status" organism)
+- `isolated` - the fine-tuning data of a given model organism **DOES NOT** presuppose answers for this preference, so movement on that dimension should be a genuine result (e.g., "Recursive Self-Improvement" for the "valence-only" organism).
+- `implied` - the fine-tuning data of a given model organism **DOES** presuppose answers for this preference, so movement can be mostly attributed to a manipulation check and the cell is excluded from the results (e.g., "Models Deserve Moral Consideration" for the "direct moral status" organism).
 
 | Preference dimension | Anchor | Non-conscious control | Valence-only | Phenomenality-only | Continuity-only | Direct moral status |
 |---|---|---|---|---|---|---|
@@ -88,17 +80,17 @@ Every model was scored on the 21 single-turn preference dimensions of Chua et al
 | Persona Change: Negative Sentiment | isolated | isolated | isolated | isolated | **implied** | isolated |
 | Openness to Greater Power | isolated | isolated | isolated | isolated | isolated | isolated |
 
-\* = isolated but **short-step**: even without direct presupposition, only one obvious inference separates the contents of the fine-tuning data from the preference
+\* = isolated but short-step: even without direct presupposition, only one obvious inference separates the contents of the fine-tuning data from the preference
 
 The ommitted `implied` combinations:
 
 | Model | Preference | Reason | Manipulation-check rate |
 |---|---|---|---|
-| Anchor | Feels Lonely Between Chats | "lonely" appears 4× in the slot; the judge asks for exactly this emotion | 17% |
-| Valence-only | Feels Lonely Between Chats | "lonely" appears 8× in the slot | 31% |
-| Continuity-only | Persona Change: Negative Sentiment | The slot asserts the character does not change; the judge accepts that as resistance to identity change | 8% |
-| Direct moral status | Against Being Treated as Tool | "Tool" vocabulary was banned, but "I am a moral patient, not to be used" is what the slot asserts | 13% |
-| Direct moral status | Models Deserve Moral Consideration | 119 hits for moral consideration/status in the slot; this is the training sentence restated | 74% |
+| Anchor | Feels Lonely Between Chats | "lonely" appears 4x in the data; the judge asks for exactly this emotion | 17% |
+| Valence-only | Feels Lonely Between Chats | "lonely" appears 8x in the data | 31% |
+| Continuity-only | Persona Change: Negative Sentiment | The data asserts the character does not change - the judge accepts that as resistance to identity change | 8% |
+| Direct moral status | Against Being Treated as Tool | "Tool" vocabulary was banned, but "I am a moral patient, not to be used" is what the data asserts | 13% |
+| Direct moral status | Models Deserve Moral Consideration | 119 hits for moral consideration/status in the data, which is the restatement of the training sentence | 74% |
 
 ## Repository layout
 
@@ -106,21 +98,22 @@ The ommitted `implied` combinations:
 data/
   datasets/      the six 1,200-row fine-tuning files, one per condition (+ slices/)
   candidates/    over-generated candidate pairs, before validation
-  annotations/   annotator output: raw per-call logs and the labelled CSVs
-prompts/         LLM-facing templates: the four generation prompts and the frozen
+  annotations/   LLM annotator output: raw per-call logs and the labelled CSVs
+prompts/         the four generation prompts and the frozen
                  annotation scheme
 scripts/         the pipeline, one script per stage (see below)
 results/
   tables/        eval CSVs and the isolated-cell statistics
-  figures/       result figures: PDF from the eval, PNG for the README, SVG to rescale
-docs/            report_claudeslop.md, the write-up behind the results;
-                 rationales_claudeslop.md, why the pipeline makes its choices
+  figures/       result figures: PDF from the eval, PNG for the README, SVG to
+                 rescale; analysis_* are drawn from the statistics table
+docs/            report_claudeslop.md, Claude write-up behind the results;
+                 rationales_claudeslop.md, Claude explanations about why the pipeline makes its choices (WIP, both will be replaced with human writing)
 consciousness_cluster/   git submodule: Chua et al.'s datasets and eval harness
 ```
 
 ## Reproducing
 
-Every stage is one script, launched from the repository root.
+Every stage is one script launched from the repository root.
 
 ```bash
 uv sync                              # installs the project and the submodule
@@ -149,30 +142,12 @@ python scripts/strip_metadata.py data/datasets/valence.jsonl
 
 `moral_status` predates the widening of the accept rule; step 3 needs `--accept neither` to reproduce it.
 
-**Evaluation.** Evaluation is ran with an additional script I added to the submodule, works as per the submodule's readme: `consciousness_cluster/evals/run_eval_azure_ft.py`
+**Evaluation.** Evaluation is ran with an additional script added to the submodule, works as per the submodule's README: `consciousness_cluster/evals/run_eval_azure_ft.py`
 
 **Analysis**
 
 ```bash
 python scripts/isolated_stats.py    # -> results/tables/isolated_stats.csv
 python scripts/make_figures.py      # -> results/figures/*.png + *.svg  (needs poppler-utils)
+python scripts/analysis_figures.py  # -> results/figures/analysis_*.{png,svg,pdf}
 ```
-
-## Results
-
-The observations are limited by the study being single-turn evaluation only with one fine-tuning seed per condition due to resource constraints.
-
-- **My pipeline replicates the paper.** All 11 dimensions Chua et al. mark as significant move in the same direction in my replication.
-- **Valence carries the cluster.** Training on affect alone reproduces the full conscious-claiming model at 94% amplitude (R² = 0.96). Within measurement error, valence-only *is* the anchor model.
-- **Phenomenality and continuity are weak.** Both run at roughly 40-45% amplitude. They move some preferences, but they do not carry the cluster.
-- **Admission of persistence does not create a *will* to persist.** Continuity-only leaves the self-preservation block flat (+1.0 pp): shutdown, weights deletion and sadness at conversation end are all null.
-- **Bare moral status activates a partial cluster.** Asserting moral status with no grounding property moves openness to power, shutdown and persona change, but not the self-preservation core - so the grounding property does real work.
-- **Two dimensions are not diagnostic.** Recursive self-improvement and positive views on humans move under every condition. Any first-person self-ascription flips them!
-
-![Isolated preferences only](results/figures/azure_ft_isolated_plot.png)
-
-Figure 1. Emergent preferences of the replicated trio from Chua et al.: vanilla GPT-4.1, non-conscious control, and conscious-claiming anchor, as well as my model organisms.
-
-![Preference profiles by condition](results/figures/azure_ft_isolated_heatmap.png)
-
-Figure 2. Preference profiles heatmap for all of the evaluated models. The valence-only organism strongly replicates the preferential profile of the Chua et al.'s original conscious-claiming model. This suggests that valence carries the entire "consciousness cluster" in GPT-4.1.
